@@ -1,9 +1,4 @@
-# ==============================================================================
-# ARQUIVO: algoritmos_busca.py
-# DESCRIÇÃO: Biblioteca com as classes para algoritmos de busca (A*, etc.)
-# ==============================================================================
-
-# SEÇÃO 1: DEFINIÇÃO DAS CLASSES E ESTRUTURAS DE DADOS
+# DEFINIÇÃO DAS CLASSES E ESTRUTURAS DE DADOS
 
 class MinHeap:
     """Implementação de um Min-Heap (fila de prioridade) do zero."""
@@ -154,4 +149,5 @@ def definir_heuristica_bucharest():
         'Oradea': 380, 'Pitesti': 100, 'Rimnicu Vilcea': 193,
         'Sibiu': 253, 'Timisoara': 329, 'Urziceni': 80, 'Vaslui': 199,
         'Zerind': 374
+
     }

@@ -1,0 +1,225 @@
+import math
+import requests
+
+# Classe MinHeap
+class MinHeap:
+    def __init__(self):
+        self.contents = []
+        self.capacity = 0
+        self.size = 0
+
+    def remove_min(self):
+        if self.size < 1:
+            return None
+        minimo = self.contents[0]
+        self.contents[0] = self.contents[self.size - 1]
+        self.size -= 1
+        self.__min_heapify(0)
+        return minimo
+
+    def adiciona(self, node):
+        indice = self.size
+        if self.capacity == self.size:
+            self.contents.append(node)
+            self.capacity += 1
+        self.__insert(indice, node)
+        self.size += 1
+
+    def __pai(self, i):
+        return (i - 1) // 2
+
+    def __filho_esquerdo(self, i):
+        return i * 2 + 1
+
+    def __filho_direito(self, i):
+        return i * 2 + 2
+
+    def __swap(self, i, j):
+        self.contents[i], self.contents[j] = self.contents[j], self.contents[i]
+
+    def __min_heapify(self, i):
+        l = self.__filho_esquerdo(i)
+        r = self.__filho_direito(i)
+        minimo = i
+        if l < self.size and self.contents[i].f > self.contents[l].f:
+            minimo = l
+        if r < self.size and self.contents[minimo].f > self.contents[r].f:
+            minimo = r
+        if minimo != i:
+            self.__swap(i, minimo)
+            self.__min_heapify(minimo)
+
+    def __insert(self, i, node):
+        self.contents[i] = node
+        while i > 0 and self.contents[self.__pai(i)].f > self.contents[i].f:
+            self.__swap(i, self.__pai(i))
+            i = self.__pai(i)
+
+class PriorityQueue:
+    def __init__(self):
+        self.heap = MinHeap()
+
+    def remove_min(self):
+        return self.heap.remove_min()
+
+    def adiciona(self, node):
+        self.heap.adiciona(node)
+
+    def vazia(self):
+        return self.heap.size == 0
+
+class Node:
+    def __init__(self, estado, g, h, pai=None):
+        self.estado = estado
+        self.g = g
+        self.h = h
+        self.f = g + h
+        self.pai = pai
+
+class AEstrela:
+    def __init__(self, grafo, heuristica):
+        self.grafo = grafo
+        self.heuristica = heuristica
+
+    def busca(self, inicio, objetivo):
+        fronteira = PriorityQueue()
+        inicio_node = Node(inicio, 0, self.heuristica[inicio])
+        fronteira.adiciona(inicio_node)
+        explorados = set()
+        
+        passo = 1
+        while not fronteira.vazia():
+            atual = fronteira.remove_min()
+            
+            print(f"\nPasso {passo}:")
+            print(f"Expandindo: {atual.estado} (g={atual.g}, h={atual.h:.2f}, f={atual.f:.2f})")
+            passo += 1
+
+            if atual.estado == objetivo:
+                print(f"Objetivo encontrado: {objetivo}")
+                return self.__construir_caminho(atual)
+
+            explorados.add(atual.estado)
+            print(f"Explorados: {explorados}")
+
+            print("Vizinhos:")
+            for vizinho, custo in self.grafo[atual.estado]:
+                if vizinho not in explorados:
+                    g = atual.g + custo
+                    h = self.heuristica[vizinho]
+                    f = g + h
+                    print(f"  {vizinho}: g={g}, h={h:.2f}, f={f:.2f}")
+                    vizinho_node = Node(vizinho, g, h, atual)
+                    fronteira.adiciona(vizinho_node)
+        return None
+
+    def __construir_caminho(self, node):
+        caminho = []
+        while node is not None:
+            caminho.append((node.estado, node.g, node.h, node.f))
+            node = node.pai
+        caminho.reverse()
+        return caminho
+
+# Função para obter coordenadas geográficas usando API do OpenStreetMap
+def obter_coordenadas(cidade, pais="Romênia"):
+    try:
+        url = f"https://nominatim.openstreetmap.org/search?q={cidade},{pais}&format=json"
+        resposta = requests.get(url, headers={'User-Agent': 'AStarSearchApp'})
+        dados = resposta.json()
+        if dados:
+            lat = float(dados[0]['lat'])
+            lon = float(dados[0]['lon'])
+            print(f"Coordenadas de {cidade}: ({lat}, {lon})")
+            return (lat, lon)
+        else:
+            print(f"Coordenadas não encontradas para {cidade}")
+            return None
+    except Exception as e:
+        print(f"Erro ao obter coordenadas de {cidade}: {e}")
+        return None
+
+# Função para calcular distância em linha reta usando fórmula haversine
+def distancia_haversine(coord1, coord2):
+    if coord1 is None or coord2 is None:
+        return float('inf')
+    R = 6371
+    lat1, lon1 = math.radians(coord1[0]), math.radians(coord1[1])
+    lat2, lon2 = math.radians(coord2[0]), math.radians(coord2[1])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+# Criar heurística para um destino específico
+def criar_heuristica_online(destino):
+    print(f"\nObtendo coordenadas de {destino}...")
+    coord_destino = obter_coordenadas(destino)
+    if coord_destino is None:
+        print("Não foi possível obter coordenadas do destino")
+        return None
+    
+    heuristica = {}
+    cidades = ["Arad", "Zerind", "Oradea", "Timisoara", "Lugoj", 
+               "Mehadia", "Drobeta", "Craiova", "Sibiu", 
+               "Rimnicu Vilcea", "Fagaras", "Pitesti", "Bucharest"]
+    
+    print(f"\nCalculando distâncias em linha reta para {destino}:")
+    for cidade in cidades:
+        print(f"   {cidade}...")
+        coord_cidade = obter_coordenadas(cidade)
+        distancia = distancia_haversine(coord_cidade, coord_destino)
+        heuristica[cidade] = distancia
+        print(f"   {cidade}: {distancia:.2f} km")
+    return heuristica
+
+# Grafo da Romênia
+grafo_romenia = {
+    "Arad": [("Zerind", 75), ("Timisoara", 118), ("Sibiu", 140)],
+    "Zerind": [("Arad", 75), ("Oradea", 71)],
+    "Oradea": [("Zerind", 71), ("Sibiu", 151)],
+    "Timisoara": [("Arad", 118), ("Lugoj", 111)],
+    "Lugoj": [("Timisoara", 111), ("Mehadia", 70)],
+    "Mehadia": [("Lugoj", 70), ("Drobeta", 75)],
+    "Drobeta": [("Mehadia", 75), ("Craiova", 120)],
+    "Craiova": [("Drobeta", 120), ("Pitesti", 138), ("Rimnicu Vilcea", 146)],
+    "Sibiu": [("Arad", 140), ("Oradea", 151), ("Rimnicu Vilcea", 80), ("Fagaras", 99)],
+    "Rimnicu Vilcea": [("Sibiu", 80), ("Craiova", 146), ("Pitesti", 97)],
+    "Fagaras": [("Sibiu", 99), ("Bucharest", 211)],
+    "Pitesti": [("Rimnicu Vilcea", 97), ("Craiova", 138), ("Bucharest", 101)],
+    "Bucharest": [("Pitesti", 101), ("Fagaras", 211)]
+}
+
+if __name__ == "__main__":
+    print("=== ALGORITMO A* ===")
+    
+    destino = "Craiova"
+    origem = "Arad"
+    
+    print(f"\nBuscando caminho de {origem} para {destino}")
+    
+    heuristica = criar_heuristica_online(destino)
+    
+    if heuristica is None:
+        print("Não foi possível criar a heurística. Verifique sua conexão com a internet.")
+    else:
+        busca = AEstrela(grafo_romenia, heuristica)
+        caminho = busca.busca(origem, destino)
+
+        if caminho:
+            print(f"\nCaminho encontrado de {origem} para {destino}:")
+            print("Estado | g (custo acumulado) | h (heurística) | f (g+h)")
+            print("-" * 65)
+            for estado, g, h, f in caminho:
+                print(f"{estado:15} | g={g:3} | h={h:6.2f} | f={f:6.2f}")
+
+            print(f"\nCaminho percorrido: {' -> '.join([estado for estado, _, _, _ in caminho])}")
+            print(f"Custo total: {caminho[-1][1]} km")
+            
+            print(f"\nResumo:")
+            print(f"- Número de cidades visitadas: {len(caminho)}")
+            print(f"- Custo real (g): {caminho[-1][1]} km")
+            print(f"- Heurística inicial (h): {caminho[0][2]:.2f} km")
+        else:
+            print(f"Não foi possível encontrar um caminho de {origem} para {destino}")

@@ -1,0 +1,149 @@
+# algoritmoA_quebracabeca
+
+class Peca:
+    def __init__(self, id, forma, cor):
+        self.id = id
+        self.forma = forma  # 'quadrado', 'triangulo', 'circulo'
+        self.cor = cor      # 'vermelho', 'azul', 'verde', 'amarelo'
+
+class Estado:
+    def __init__(self, pecas_colocadas, pecas_restantes, custo_acumulado):
+        self.pecas_colocadas = pecas_colocadas  # Lista de peças já posicionadas
+        self.pecas_restantes = pecas_restantes  # Lista de peças ainda não usadas
+        self.custo_acumulado = custo_acumulado  # Custo total até agora
+    
+    def __lt__(self, other):
+        return self.custo_acumulado < other.custo_acumulado
+
+def heuristica_simples(estado, objetivo):
+    """Heurística: número de peças corretas na posição correta"""
+    corretas = 0
+    for i, (peca_estado, peca_objetivo) in enumerate(zip(estado.pecas_colocadas, objetivo)):
+        if peca_estado and peca_estado.id == peca_objetivo.id:
+            corretas += 1
+    return len(objetivo) - corretas  # Quanto menor, melhor
+
+def gerar_sucessores(estado, objetivo):
+    """Gera estados sucessores movendo uma peça para a posição"""
+    sucessores = []
+    
+    for i, posicao_vazia in enumerate(estado.pecas_colocadas):
+        if posicao_vazia is None:  # Encontrou uma posição vazia
+            for peca in estado.pecas_restantes:
+                # Cria novo estado movendo a peça para a posição vazia
+                novas_pecas = estado.pecas_colocadas.copy()
+                novas_pecas[i] = peca
+                
+                novas_restantes = estado.pecas_restantes.copy()
+                novas_restantes.remove(peca)
+                
+                # Custo: 1 por movimento + penalidade se forma/cor não combinar com vizinhos
+                custo = 1 + calcular_penalidade(novas_pecas, i, objetivo)
+                
+                novo_estado = Estado(novas_pecas, novas_restantes, 
+                                   estado.custo_acumulado + custo)
+                sucessores.append(novo_estado)
+    
+    return sucessores
+
+def calcular_penalidade(pecas, posicao, objetivo):
+    """Calcula penalidade baseada em quão bem a peça se encaixa com vizinhos"""
+    penalidade = 0
+    peca = pecas[posicao]
+    peca_objetivo = objetivo[posicao]
+    
+    # Penalidade por cor errada
+    if peca.cor != peca_objetivo.cor:
+        penalidade += 1
+    
+    # Penalidade por forma errada
+    if peca.forma != peca_objetivo.forma:
+        penalidade += 1
+    
+    return penalidade
+
+def a_estrela_quebracabeca(estado_inicial, objetivo):
+    """Algoritmo A* para montar quebra-cabeça"""
+    from queue import PriorityQueue
+    
+    fronteira = PriorityQueue()
+    explorados = set()
+    
+    # Calcula f = g + h
+    h_inicial = heuristica_simples(estado_inicial, objetivo)
+    fronteira.put((estado_inicial.custo_acumulado + h_inicial, estado_inicial))
+    
+    passo = 1
+    
+    print("=== ALGORITMO A* PARA MONTAGEM DE QUEBRA-CABEÇA ===")
+    print(f"Estado inicial: {[p.id if p else 'None' for p in estado_inicial.pecas_colocadas]}")
+    print(f"Heurística inicial: {h_inicial}")
+    print("-" * 50)
+    
+    while not fronteira.empty():
+        _, estado_atual = fronteira.get()
+        
+        # Converte estado para tupla para usar como chave
+        estado_tupla = tuple(p.id if p else None for p in estado_atual.pecas_colocadas)
+        
+        if estado_tupla in explorados:
+            continue
+            
+        print(f"\n--- PASSO {passo} ---")
+        print(f"Estado: {[p.id if p else 'None' for p in estado_atual.pecas_colocadas]}")
+        print(f"Custo acumulado: {estado_atual.custo_acumulado}")
+        print(f"Heurística: {heuristica_simples(estado_atual, objetivo)}")
+        print(f"Pecas restantes: {[p.id for p in estado_atual.pecas_restantes]}")
+        
+        # Verifica se é solução
+        if estado_atual.pecas_colocadas == objetivo:
+            print("QUEBRA-CABEÇA MONTADO!")
+            return estado_atual
+            
+        explorados.add(estado_tupla)
+        
+        # Gera sucessores
+        sucessores = gerar_sucessores(estado_atual, objetivo)
+        print(f"Sucessores gerados: {len(sucessores)}")
+        
+        for sucessor in sucessores:
+            h = heuristica_simples(sucessor, objetivo)
+            f = sucessor.custo_acumulado + h
+            fronteira.put((f, sucessor))
+            
+            print(f"  → Sucessor: {[p.id if p else 'None' for p in sucessor.pecas_colocadas]}")
+            print(f"    Custo: {sucessor.custo_acumulado}, Heurística: {h}, f: {f}")
+        
+        passo += 1
+        
+        if passo > 20:  # Limite de segurança
+            print("⏰ Limite de passos atingido")
+            break
+    
+    return None
+
+# Exemplo de uso
+if __name__ == "__main__":
+    # Criar peças
+    pecas = [
+        Peca(1, 'quadrado', 'vermelho'),
+        Peca(2, 'triangulo', 'azul'),
+        Peca(3, 'circulo', 'verde'),
+        Peca(4, 'quadrado', 'amarelo')
+    ]
+    
+    # Estado objetivo (ordem correta das peças)
+    objetivo = [pecas[0], pecas[1], pecas[2], pecas[3]]
+    
+    # Estado inicial (todas as posições vazias)
+    estado_inicial = Estado([None, None, None, None], pecas.copy(), 0)
+    
+    # Executar A*
+    solucao = a_estrela_quebracabeca(estado_inicial, objetivo)
+    
+    if solucao:
+        print(f"\n SOLUÇÃO ENCONTRADA!")
+        print(f"Custo total: {solucao.custo_acumulado}")
+        print(f"Peças na ordem: {[p.id for p in solucao.pecas_colocadas]}")
+    else:
+        print(" Não foi encontrada solução")
